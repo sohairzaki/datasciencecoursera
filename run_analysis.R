@@ -2,107 +2,81 @@
 setwd ("/Coursera_CleaningData/UCI HAR Dataset/UCI HAR Dataset")
 getwd ()
 # we already extracted the zipped files
-
-# Reading trainings tables:
-Xtraining <- read.table("train/X_train.txt")
-# let us check it 
-head (Xtraining)
-
-
-# Reading feature vector:
-features <- read.table('features.txt')
-# let us check it 
-features
+library(plyr)
+# Step 1
+# Merge the training and test sets to create one data set
+###############################################################################
+XTrain <- read.table("train/X_train.txt")
+YTrain <- read.table("train/y_train.txt")
+SubjTrain <- read.table("train/subject_train.txt")
 
 
-# Reading activity labels:
-ActivityLabels = read.table('activity_labels.txt')
-#let us check it
-ActivityLabels
 
-# set column names for activities
-colnames(ActivityLabels) <- c('Activity','Activity_Type')
-colnames(ActivityLabels)
-
-######## for train################
-
-# assign column names to Xtrain
-colnames(Xtraining) <- features[,2] 
-colnames(Xtraining)
-#_________
-
-# read the y train text file 
-YTraining <- read.table("train/y_train.txt")
-
-# assign column names
-colnames(YTraining) <-"Activity"
-
-#__________________
-# read the subject train text file
-SubjectTraining <- read.table("train/subject_train.txt")
-#let us check it
-head (SubjectTraining)
-#assign column names
-colnames(SubjectTraining) <- "Subject"
-
-#____*** let us do the same with testing text files##############
-# Reading testing tables:
 XTest <- read.table("test/X_test.txt")
-# assign column headers
-colnames(XTest) <- features[,2] 
-colnames(XTest)
-
- # read the y test data
 YTest <- read.table("test/y_test.txt")
-#assign column headers
-colnames(YTest)<- "Activity"
+SubjTest <- read.table("test/subject_test.txt")
 
-# read the subject test data
-subjectTest <- read.table("test/subject_test.txt")
-# assign column headers
-colnames(subjectTest) <- "Subject" 
+#combine X data 
 
+XData <- rbind (XTest, XTrain)
 
- 
-# merge the testing files
-AllTest <- cbind(YTest, subjectTest, XTest)
-# let us test it
-#let us check
-colnames(AllTest)
-
-#merge the training files
-AllTraining <- cbind (YTraining, SubjectTraining, Xtraining)
-#let us check it
-colnames(AllTraining)
-
-# merge test and training all in one set
-
-AllinOne <- rbind(AllTraining, AllTest)
+#combine Y data
+YData <- rbind (YTest,YTrain)
 
 
-# let us check the column names are set properly
-colNames <- colnames(AllinOne)
-colNames
-# Create vector for defining ID, mean and standard deviation
-MeanStd <- (grepl("Activity" , colNames) | 
-                     grepl("Subject" , colNames) | 
-                     grepl("mean.." , colNames) | 
-                     grepl("std.." , colNames) 
-)
-
-# get the required subset (clean one)
-MeanStdSubAllinone <- AllinOne[ , MeanStd  == TRUE]
-# let us check it
-MeanStdSubAllinone
-
-myTidySet <- aggregate(. ~Subject + Activity, MeanStdSubAllinone, mean)
-
-# let us check it
-
-myTidySet
-
-# let us write it to a text file
-write.table(myTidySet, "TidySet.txt", row.name=FALSE)
+#Combine Subject data
+SubjData <- rbind (SubjTest, SubjTrain)
 
 
- 
+
+
+# read the features
+Features <- read.table("features.txt")
+
+
+# read the activities
+Activities <- read.table("activity_labels.txt")
+
+
+# Step 2
+# Extract only the measurements on the mean and standard deviation for each measurement
+###############################################################################
+
+# get only columns with mean() or std() in their names we are going to exclude mean Freq and so on
+MeanStdFeatures <- grep("-(mean|std)\\(\\)", features[, 2])
+
+# Get the desired columns from Xdata
+XData <- XData[, MeanStdFeatures]
+
+# correct the column names
+names(XData) <- features[MeanStdFeatures, 2]
+
+
+# add column name for YData
+# correct column name
+names(YData) <- "Activity"
+
+# update values with correct activity names
+YData[, 1] <- activities[YData [, 1], 2]
+YData
+
+# Step 4
+# Appropriately label the data set with descriptive variable names
+###############################################################################
+
+# correct column name
+names(SubjData) <- "Subject"
+
+# bind all the columns data in a single data set
+AllData <- cbind (XData, YData, SubjData)
+AllData
+
+# Step 5
+# Create a second, independent tidy data set with the average of each variable
+# for each activity and each subject
+###############################################################################
+TidyData <- ddply(AllData, .(Subject, Activity), function(x) colMeans(x[, 1:66]))
+
+#write the file
+
+write.table(TidyData, "MyTidyData.txt", row.name=FALSE)
